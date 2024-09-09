@@ -1,4 +1,4 @@
-# EdgeSync360 EdgeHub SDK Example
+# EdgeSync360 EdgeHub DotNet SDK Example
 
 This repository provides an example of how to use the EdgeSync360.EdgeHub.Edge.DotNet.SDK to connect an edge device to the EdgeHub, configure devices, upload data, and send real-time telemetry using different types of tags.
 
@@ -53,8 +53,6 @@ dotnet add package EdgeSync360.EdgeHub.Edge.DotNet.SDK
    };
    ```
 
-   
-
 - CredentialKey: Your DCCS API credential key.
 - APIUrl: The URL for the DCCS service.
 - NodeId: The node identifier from the portal.
@@ -92,7 +90,7 @@ dotnet add package EdgeSync360.EdgeHub.Edge.DotNet.SDK
    - TextTagConfig: Configuration for a text-based tag.
 
    Example for adding a new tag:
-   
+
    ```csharp
    EdgeConfig.AnalogTagConfig newAnalogTag = new EdgeConfig.AnalogTagConfig()
    {
@@ -107,7 +105,7 @@ dotnet add package EdgeSync360.EdgeHub.Edge.DotNet.SDK
 
 5. Uploading Data
    Simulated data is uploaded using the EdgeAgent.SendData() method. In the example, the telemetry data is generated randomly and sent every second.
-   
+
    ```csharp
    for (var i = 0; i < 10; i++)
    {
@@ -130,8 +128,6 @@ dotnet add package EdgeSync360.EdgeHub.Edge.DotNet.SDK
    }
    Console.WriteLine("connected!");
    ```
-
-
 
 # Conclusion
 
