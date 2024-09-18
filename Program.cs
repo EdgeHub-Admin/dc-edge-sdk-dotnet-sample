@@ -3,13 +3,13 @@ using EdgeSync360.EdgeHub.Edge.DotNet.SDK.Model;
 
 EdgeAgentOptions options = new EdgeAgentOptions()
 {
-    ConnectType = ConnectType.DCCS,                         // Connection type (DCCS, MQTT). The default is DCCS.
-    DCCS = new DCCSOptions()                                // If ConnectType is DCCS, the following options must be entered:
+    ConnectType = ConnectType.AzureIoTHub,                      // Connection type (DCCS, MQTT). The default is DCCS.
+    DCCS = new DCCSOptions()                                    // If ConnectType is DCCS, the following options must be entered:
     {
-        CredentialKey = "YOUR_CREDENTIAL_KEY",              // Credential Key
-        APIUrl = "YOUR_API_URL"                             // DCCS API Url
+        CredentialKey = "0cfe34bb4b0ebf504888c557179a1cf1",     // Credential Key
+        APIUrl = "http://api-dccs-ensaas.isghpc.wise-paas.com/" // DCCS API Url
     },
-    MQTT = new MQTTOptions()                                // If ConnectType is MQTT, the following options must be entered:
+    MQTT = new MQTTOptions()                                    // If ConnectType is MQTT, the following options must be entered:
     {
         HostName = "127.0.0.1",
         Port = 1883,
@@ -17,10 +17,15 @@ EdgeAgentOptions options = new EdgeAgentOptions()
         Password = "admin",
         ProtocolType = Protocol.TCP
     },
+    AzureIoTHub = new AzureIoTHubOptions()
+    {
+        HostName = "edge365-dev.azure-devices.net",
+        SASToken = "SharedAccessSignature sr=edge365-dev.azure-devices.net%2Fdevices%2F47fe2070-7405-11ef-bf44-299ec24cc191&sig=TjXYa9ESCgNNL%2FaD5lEbyfp5eQS38LS3S8kDntNAALc%3D&se=4880075151&skn=device"
+    },
     UseSecure = false,
     AutoReconnect = true,
     ReconnectInterval = 1000,
-    NodeId = "YOUR_NODE_ID",                                // Get from portal
+    NodeId = "47fe2070-7405-11ef-bf44-299ec24cc191",        // Get from portal
     Type = EdgeType.Gateway,                                // Configure the edge type as Gateway or Device. The default is Gateway.
     DeviceId = "SmartDevice1",                              // If the type is Device, the DeviceId must be entered. 
     Heartbeat = 60000,                                      // The default is 60 seconds.
@@ -28,12 +33,12 @@ EdgeAgentOptions options = new EdgeAgentOptions()
 };
 EdgeAgent edgeAgent = new EdgeAgent(options);
 
+edgeAgent.Connected += edgeAgent_Connected!;
+edgeAgent.Disconnected += edgeAgent_Disconnected!;
+edgeAgent.MessageReceived += edgeAgent_MessageReceived!;
+
 Console.WriteLine("connecting ...");
 await edgeAgent.Connect();
-while (!edgeAgent.IsConnected)
-{
-    Thread.Sleep(1000);
-}
 Console.WriteLine("connected!");
 
 
@@ -98,57 +103,102 @@ config.Node = new EdgeConfig.NodeConfig();
 config.Node.DeviceList.Add(device);
 
 Console.WriteLine("upload config ...");
-edgeAgent.UploadConfig(ActionType.Delsert, config).Wait();
-Console.WriteLine(String.Format("uploaded!"));
+var isConfigAck = false;
+bool result = edgeAgent.UploadConfig(ActionType.Delsert, config).Result;
+Console.WriteLine(String.Format("uploaded! result is {0}", result));
 
-
-for (var i = 0; i < 10; i++)
+while (true)
 {
-    Random random = new Random();
-    EdgeData data = new EdgeData();
-
-    foreach (var d in config.Node.DeviceList)
+    if (isConfigAck)
     {
-        foreach (var tag in d.AnalogTagList)
+        break;
+    }
+
+    Console.WriteLine("waiting for config to ack ...");
+    Thread.Sleep(1000);
+}
+
+Random random = new Random();
+
+for (int i = 0; i < 10; i++)
+{
+    EdgeData data = new EdgeData();
+    foreach (var tag in device.AnalogTagList)
+    {
+        EdgeData.Tag aTag = new EdgeData.Tag()
         {
-            EdgeData.Tag aTag = new EdgeData.Tag()
-            {
-                DeviceId = d.Id,
-                TagName = tag.Name,
-                Value = random.NextDouble()
-            };
+            DeviceId = device.Id,
+            TagName = tag.Name,
+            Value = random.NextDouble()
+        };
+        data.TagList.Add(aTag);
+    }
 
-            data.TagList.Add(aTag);
-        }
-
-        foreach (var tag in d.DiscreteTagList)
+    foreach (var tag in device.DiscreteTagList)
+    {
+        EdgeData.Tag dTag = new EdgeData.Tag()
         {
-            EdgeData.Tag dTag = new EdgeData.Tag()
-            {
-                DeviceId = d.Id,
-                TagName = tag.Name,
-                Value = random.Next() % 2
-            };
+            DeviceId = device.Id,
+            TagName = tag.Name,
+            Value = random.NextInt64() % 2
+        };
+        data.TagList.Add(dTag);
+    }
 
-            data.TagList.Add(dTag);
-        }
-
-        foreach (var tag in d.TextTagList)
+    foreach (var tag in device.TextTagList)
+    {
+        EdgeData.Tag tTag = new EdgeData.Tag()
         {
-            EdgeData.Tag tTag = new EdgeData.Tag()
-            {
-                DeviceId = d.Id,
-                TagName = tag.Name,
-                Value = "test"
-            };
-
-            data.TagList.Add(tTag);
-        }
+            DeviceId = device.Id,
+            TagName = tag.Name,
+            Value = random.NextSingle()
+        };
+        data.TagList.Add(tTag);
     }
 
     data.Timestamp = DateTime.Now;
-    Console.WriteLine(String.Format("upload data ... {0}", data.Timestamp));
-    await edgeAgent.SendData(data);
-    Console.WriteLine(String.Format("uploaded!"));
+    result = edgeAgent.SendData(data).Result;
+    Console.WriteLine(String.Format("data {0} is sent! result is {1}", i + 1, result));
+
     Thread.Sleep(1000);
+}
+
+await edgeAgent.Disconnect();
+
+void edgeAgent_Connected(object sender, EdgeAgentConnectedEventArgs e)
+{
+    // Connected
+    Console.WriteLine("handle connected event");
+}
+
+void edgeAgent_Disconnected(object sender, DisconnectedEventArgs e)
+{
+    // Disconnected
+    Console.WriteLine("handle disconnected event");
+}
+
+void edgeAgent_MessageReceived(object sender, MessageReceivedEventArgs e)
+{
+    Console.WriteLine("handle message received event, type: " + e.Type + ", message: ", e.Message);
+    switch (e.Type)
+    {
+        case MessageType.WriteValue:
+            WriteValueCommand wvcMsg = (WriteValueCommand)e.Message;
+            foreach (var device in wvcMsg.DeviceList)
+            {
+                Console.WriteLine("deviceId: {0}", device.Id);
+                foreach (var tag in device.TagList)
+                {
+                    Console.WriteLine("tagName: {0}, value: {1}", tag.Name, tag.Value.ToString());
+                }
+            }
+            break;
+        case MessageType.WriteConfig:
+            break;
+        case MessageType.ConfigAck:
+            ConfigAck cfgAckMsg = (ConfigAck)e.Message;
+            Console.WriteLine("upload config result: {0}", cfgAckMsg.Result.ToString());
+            isConfigAck = true;
+            break;
+    }
 }

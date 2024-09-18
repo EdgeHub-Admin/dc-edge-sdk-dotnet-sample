@@ -47,6 +47,11 @@ dotnet add package EdgeSync360.EdgeHub.Edge.DotNet.SDK
            Password = "admin",                                 // Replace with your MQTT password
            ProtocolType = Protocol.TCP
        },
+       AzureIoTHub = new AzureIoTHubOptions()
+       {
+           HostName = "YOUR_HOST_NAME",
+           SASToken = "YOUR_SAS_TOKEN"
+       },
        NodeId = "YOUR_NODE_ID",                                // Replace with your Node ID
        Type = EdgeType.Gateway,                                // Gateway or Device, default is Gateway
        DeviceId = "SmartDevice1",                              // Device ID if type is set to Device
@@ -56,6 +61,8 @@ dotnet add package EdgeSync360.EdgeHub.Edge.DotNet.SDK
 - CredentialKey: Your DCCS API credential key.
 - APIUrl: The URL for the DCCS service.
 - NodeId: The node identifier from the portal.
+- HostName: azure iot hub host name.
+- SASToken: azure iot hub sas token.
 
 2. Run the Program
 
